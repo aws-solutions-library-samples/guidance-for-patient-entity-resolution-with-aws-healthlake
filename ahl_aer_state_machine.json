@@ -1,0 +1,148 @@
+{
+  "Comment": "A state machine for entity resolution of patients in an AWS HealthLake datastore",
+  "StartAt": "Read AHL Data",
+  "States": {
+    "Read AHL Data": {
+      "Next": "Check Crawler",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${ReadAHLData}"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ]
+    },
+    "Check Crawler": {
+      "Next": "Run Workflow",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${CheckCrawler}"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ]
+    },
+    "Run Workflow": {
+      "Next": "Check Job",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${RunWorkflow}"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "ResultPath": "$.run_workflow"
+    },
+    "Check Job": {
+      "Next": "Is Job Running?",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "Payload.$": "$",
+        "FunctionName": "${CheckJob}"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "ResultPath": "$.check_job"
+    },
+    "Is Job Running?": {
+      "Choices": [
+        {
+          "Or": [
+            {
+              "Variable": "$.check_job.Payload.status",
+              "StringEquals": "RUNNING"
+            },
+            {
+              "Variable": "$.check_job.Payload.status",
+              "StringEquals": "QUEUED"
+            }
+          ],
+          "Next": "Wait for Job To Complete"
+        },
+        {
+          "Variable": "$.check_job.Payload.status",
+          "StringEquals": "FAILED",
+          "Next": "Output Fail"
+        }
+      ],
+      "Default": "Write to AHL",
+      "Type": "Choice"
+    },
+    "Wait for Job To Complete": {
+      "Next": "Check Job",
+      "Seconds": 600,
+      "Type": "Wait"
+    },
+    "Write to AHL": {
+      "End": true,
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${WriteAHL}",
+        "Payload.$": "$"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ]
+    },
+    "Output Fail": {
+      "Error": "Entity Resolution workflow run failed.",
+      "Type": "Fail"
+    }
+  }
+}

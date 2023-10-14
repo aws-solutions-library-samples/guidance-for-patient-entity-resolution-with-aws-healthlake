@@ -1,0 +1,1335 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "AWS HealthLake AWS Entity Resolution integration.",
+
+    "Parameters": {
+        "InputBucket": {
+            "Type": "String",
+            "Description": "S3 bucket name for AWS Entity Resolution (AER) input. For example, aer-input-[AccountId]"
+        },
+        "OutputBucket": {
+            "Type": "String",
+            "Description": "S3 bucket name for AWS Entity Resolution (AER) output. For example, aer-output-[AccountId]"
+        },
+        "AHLDataStoreId": {
+            "Type": "String",
+            "Description": "HealthLake datastore ID"
+        },
+        "GlueDatabaseName": {
+            "Type": "String",
+            "Default": "healthlake-patient-db",
+            "Description": "Name of the Glue database"
+        },
+        "AERSchemaName": {
+            "Type": "String",
+            "Default": "healthlake-patient-schema",
+            "Description": "Name of the AER schema mapping"
+        },
+        "AERWorkflowName": {
+            "Type": "String",
+            "Default": "healthlake-patient-workflow",
+            "Description": "Name of the AER matching workflow"
+        },
+        "Region": {
+            "Type": "String",
+            "Default": "us-east-1",
+            "Description": "AWS Region to deploy. At this time, we only support Region us-east-1"
+        },
+        "HealthLakeDBCatalogID": {
+            "Type": "String",
+            "MinLength": "3",
+            "MaxLength": "255",
+            "AllowedPattern": "[a-zA-Z0-9_.-]+",
+            "Description": "The account id of the Healthlake service account (catalog id) in LakeFormation)"
+        },
+        "HealthLakeDatabaseName": {
+            "Type": "String",
+            "MinLength": "3",
+            "MaxLength": "255",
+            "AllowedPattern": "[a-zA-Z0-9_.-]+",
+            "Description": "The name of the Healthlake database to query from"
+        },
+        "GlueTableName": {
+            "Type": "String",
+            "MinLength": "1",
+            "MaxLength": "255",
+            "Description": "The table name for the Glue crawler to crawl",
+            "Default": "healthlake-patients"
+        },
+        "ConfidenceLevel": {
+            "Type": "Number",
+            "Description": "The threshold value of confidence level applied by AWS Entity Resolution ML-based matching to identify matched record set.",
+            "Default": "0.90"
+        }
+    },
+    "Resources": {
+        "AERInputBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+              "Bucket": {
+                "Ref": "AERInputBucket"
+              },
+              "PolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Sid": "DenyAllHTTPRequests",
+                    "Effect": "Deny",
+                    "Principal": "*",
+                    "Action": "s3:*",
+                    "Resource": [
+                        {"Fn::Sub": "arn:aws:s3:::${InputBucket}"},
+                        {"Fn::Sub": "arn:aws:s3:::${InputBucket}/*"}
+                    ],
+                    "Condition": {
+                      "Bool": {
+                        "aws:SecureTransport": false
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "Metadata": {
+                "cdk_nag": {
+                  "rules_to_suppress": [
+                    {
+                      "id": "AwsSolutions-S10",
+                      "reason": "This has been taken care of in this policy"
+                    }
+                  ]
+                }
+            }
+        },
+        "AERInputBucket": {
+            "Type": "AWS::S3::Bucket",
+            "Properties": {
+                "BucketName": {
+                    "Ref": "InputBucket"
+                },
+                "LoggingConfiguration": {
+                    "DestinationBucketName": {
+                        "Ref": "InputBucket"
+                    },
+                    "LogFilePrefix": "server-access-logs"
+                },
+                "BucketEncryption": {
+                    "ServerSideEncryptionConfiguration": [
+                        {
+                            "BucketKeyEnabled": true,
+                            "ServerSideEncryptionByDefault": {
+                                "SSEAlgorithm": "AES256"
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        "AEROutputBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+              "Bucket": {
+                "Ref": "AEROutputBucket"
+              },
+              "PolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Sid": "DenyAllHTTPRequests",
+                    "Effect": "Deny",
+                    "Principal": "*",
+                    "Action": "s3:*",
+                    "Resource": [
+                        {"Fn::Sub": "arn:aws:s3:::${OutputBucket}"},
+                        {"Fn::Sub": "arn:aws:s3:::${OutputBucket}/*"}
+                    ],
+                    "Condition": {
+                      "Bool": {
+                        "aws:SecureTransport": false
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "Metadata": {
+                "cdk_nag": {
+                  "rules_to_suppress": [
+                    {
+                      "id": "AwsSolutions-S10",
+                      "reason": "This has been taken care of in this policy"
+                    }
+                  ]
+                }
+            }
+        },
+        "AEROutputBucket": {
+            "Type": "AWS::S3::Bucket",
+            "Properties": {
+                "BucketName": {
+                    "Ref": "OutputBucket"
+                },
+                "LoggingConfiguration": {
+                    "DestinationBucketName": {
+                        "Ref": "OutputBucket"
+                    },
+                    "LogFilePrefix": "server-access-logs"
+                },
+                "BucketEncryption": {
+                    "ServerSideEncryptionConfiguration": [
+                        {
+                            "BucketKeyEnabled": true,
+                            "ServerSideEncryptionByDefault": {
+                                "SSEAlgorithm": "AES256"
+                            }
+                        }
+                    ]
+                }              
+            }
+        },
+        "GlueDatabase": {
+            "Type": "AWS::Glue::Database",
+            "Properties": {
+                "CatalogId": {
+                    "Ref": "AWS::AccountId"
+                },
+                "DatabaseInput": {
+                    "Name": {
+                        "Ref": "GlueDatabaseName"
+                    },
+                    "Description": "Database for Glue crawler"
+                }
+            }
+        },
+        "GlueTable": {
+            "Type" : "AWS::Glue::Table",
+            "Properties" : {
+                "CatalogId" : {
+                    "Ref": "AWS::AccountId"
+                },
+                "DatabaseName": {
+                    "Ref": "GlueDatabaseName"
+                },
+                "TableInput" : {
+                    "Description" : "Glue table for HealthLake patients",
+                    "Name" : {"Ref": "GlueTableName"},
+                    "StorageDescriptor" : {
+                        "Location": {"Fn::Sub": "s3://${InputBucket}/aer-input/"}  
+                    }
+                }
+            },
+            "DependsOn": ["GlueDatabase"]
+        },       
+        "GlueCrawler": {
+            "Type": "AWS::Glue::Crawler",
+            "Properties": {
+                "Name": {"Fn::Sub": "${AWS::StackName}-crawler"},
+                "DatabaseName": {
+                    "Ref": "GlueDatabase"
+                },
+                "Role": {
+                    "Fn::GetAtt": [
+                        "GlueRole",
+                        "Arn"
+                    ]
+                },
+                "Targets": {
+                    "CatalogTargets": [
+                        {
+                            "DatabaseName": {
+                                "Ref": "GlueDatabase"
+                            },
+                            "Tables": [
+                                {"Ref": "GlueTableName"}
+                            ]
+                        }
+                    ]
+                },
+                "SchemaChangePolicy": {
+                    "UpdateBehavior": "UPDATE_IN_DATABASE",
+                    "DeleteBehavior": "LOG"
+                }
+            }
+        },
+        "GlueRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "RoleName": {"Fn::Sub": "${AWS::StackName}-glue-crawler-role"},
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": "glue.amazonaws.com"
+                            },
+                            "Action": "sts:AssumeRole"
+                        }
+                    ]
+                },
+                "ManagedPolicyArns": [
+                    "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
+                ],
+                "Policies": [
+                    {
+                        "PolicyName": {"Fn::Sub": "${AWS::StackName}-glue-crawler-policy"},
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "s3:GetObject",
+                                        "s3:PutObject"
+                                    ],
+                                    "Resource": [
+                                        {"Fn::Sub": "arn:aws:s3:::${InputBucket}/*"}
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+            "Metadata": {
+                "cdk_nag": {
+                  "rules_to_suppress": [
+                    {
+                      "id": "AwsSolutions-IAM4",
+                      "reason": "Use a standard service role."
+                    }
+                  ]
+                }
+            }
+        },
+        "AERPolicy": {
+            "Type": "AWS::IAM::Policy",
+            "Properties": {
+                "PolicyName": {"Fn::Sub": "${AWS::StackName}-aer-lambda-policy"},
+                "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                            "entityresolution:GetMatchingJob",
+                            "entityresolution:StartMatchingJob"
+                        ],
+                        "Resource": {"Fn::Sub": "arn:aws:entityresolution:${AWS::Region}:${AWS::AccountId}:matchingworkflow/*"}
+                      }
+                    ]
+                },
+                "Roles": [
+                    {
+                      "Ref": "AERLambdaExecutionRole"  
+                    }
+                ]
+            }
+        },
+        "AERLambdaExecutionRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "RoleName": {"Fn::Sub": "${AWS::StackName}-aer-lambda-execution-role"},
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                      {
+                        "Effect": "Allow",
+                        "Principal": {
+                          "Service": "lambda.amazonaws.com" 
+                        },
+                        "Action": "sts:AssumeRole"
+                      }
+                    ]
+                },
+                "ManagedPolicyArns": [
+                    "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                ]
+            },
+            "Metadata": {
+                "cdk_nag": {
+                  "rules_to_suppress": [
+                    {
+                      "id": "AwsSolutions-IAM4",
+                      "reason": "Use a standard Lambda execution role."
+                    }
+                  ]
+                }
+            }
+        },
+        "Boto3Layer": {
+            "Type": "AWS::Lambda::LayerVersion",
+            "Properties": {
+                "CompatibleRuntimes": [
+                    "python3.11"
+                ],
+                "CompatibleArchitectures": [
+                    "x86_64"
+                ],
+                "Content": {
+                    "S3Bucket": "ahl-identity-resolution-bucket",
+                    "S3Key": "boto3-1-28.zip"
+                },
+                "Description": "boto3 version 1.28.3",
+                "LayerName": "boto3-1-28-3",
+                "LicenseInfo": "MIT"
+            }
+        },
+        "RunAERJob": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "FunctionName": {"Fn::Sub": "${AWS::StackName}-run-aer-job"},
+                "Handler": "lambda_function.lambda_handler",
+                "Role": {
+                    "Fn::GetAtt": [
+                        "AERLambdaExecutionRole",
+                        "Arn"
+                    ]
+                },
+                "Code": {
+                    "S3Bucket": "ahl-identity-resolution-bucket",
+                    "S3Key": "run-aer-job.zip"
+                },
+                "Runtime": "python3.11",
+                "Timeout": 60,
+                "Layers": [
+                    {
+                        "Ref": "Boto3Layer"
+                    }
+                ],
+                "Environment": {
+                    "Variables": {
+                        "WORKFLOW": {
+                            "Ref": "AERWorkflowName"
+                        }
+                    } 
+                },
+                "ReservedConcurrentExecutions": 1
+            }
+        },
+        "CheckAERJob": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "FunctionName": {"Fn::Sub": "${AWS::StackName}-check-aer-job"},
+                "Handler": "lambda_function.lambda_handler",
+                "Role": {
+                    "Fn::GetAtt": [
+                        "AERLambdaExecutionRole",
+                        "Arn"
+                    ]
+                },
+                "Code": {
+                    "S3Bucket": "ahl-identity-resolution-bucket",
+                    "S3Key": "check-aer-job.zip"
+                },
+                "Runtime": "python3.11",
+                "Timeout": 30,
+                "Layers": [
+                    {
+                        "Ref": "Boto3Layer"
+                    }
+                ],
+                "Environment": {
+                    "Variables": {
+                        "WORKFLOW": {
+                            "Ref": "AERWorkflowName"
+                        }
+                    } 
+                },
+                "ReservedConcurrentExecutions": 1
+            }
+        },
+        "AHLPolicy": {
+            "Type": "AWS::IAM::Policy",
+            "Properties": {
+                "PolicyName": {"Fn::Sub": "${AWS::StackName}-ahl-lambda-policy"},
+                "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:Get*",
+                                "s3:List*",
+                                "s3:Put*"
+                            ],
+                            "Resource": [
+                                {"Fn::Sub": "arn:aws:s3:::${OutputBucket}/*"},  
+                                {"Fn::Sub": "arn:aws:s3:::${OutputBucket}"}
+                            ]
+                        },
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "healthlake:ReadResource",
+                                "healthlake:UpdateResource"
+                            ],
+                            "Resource": {"Fn::Sub": "arn:aws:healthlake:${AWS::Region}:${AWS::AccountId}:datastore/fhir/${AHLDataStoreId}"}
+                        }
+                    ]
+                },
+                "Roles": [
+                    {
+                      "Ref": "AHLLambdaExecutionRole"  
+                    }
+                ]
+            }
+        },
+        "AHLLambdaExecutionRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "RoleName": {"Fn::Sub": "${AWS::StackName}-ahl-lambda-execution-role"},
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                      {
+                        "Effect": "Allow",
+                        "Principal": {
+                          "Service": "lambda.amazonaws.com" 
+                        },
+                        "Action": "sts:AssumeRole"
+                      }
+                    ]
+                },
+                "ManagedPolicyArns": [
+                    "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                ]
+            },
+            "Metadata": {
+                "cdk_nag": {
+                  "rules_to_suppress": [
+                    {
+                      "id": "AwsSolutions-IAM4",
+                      "reason": "Use a standard Lambda execution role."
+                    }
+                  ]
+                }
+            }
+        },
+        "RequestsLayer": {
+            "Type": "AWS::Lambda::LayerVersion",
+            "Properties": {
+                "CompatibleRuntimes": [
+                    "python3.11"
+                ],
+                "CompatibleArchitectures": [
+                    "x86_64"
+                ],
+                "Content": {
+                    "S3Bucket": "ahl-identity-resolution-bucket",
+                    "S3Key": "requests-and-sigv4.zip"
+                },
+                "Description": "requests and AWSSigV4 packages",
+                "LayerName": "requests-and-sigv4",
+                "LicenseInfo": "MIT"
+            }
+        },
+        "InsertMatchId": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "FunctionName": {"Fn::Sub": "${AWS::StackName}-insert-match-id"},
+                "Handler": "lambda_function.lambda_handler",
+                "Role": {
+                    "Fn::GetAtt": [
+                        "AHLLambdaExecutionRole",
+                        "Arn"
+                    ]
+                },
+                "Code": {
+                    "S3Bucket": "ahl-identity-resolution-bucket",
+                    "S3Key": "insert-match-id.zip"
+                },
+                "Runtime": "python3.11",
+                "Timeout": 600,
+                "Layers": [
+                    {
+                        "Ref": "RequestsLayer"
+                    }
+                ],
+                "Environment": {
+                    "Variables": {
+                        "WORKFLOW": {
+                            "Ref": "AERWorkflowName"
+                        },
+                        "REGION": {
+                            "Fn::Sub": "${AWS::Region}"
+                        },
+                        "OUTPUT_BUCKET": {
+                            "Ref": "OutputBucket"
+                        },
+                        "DATASTORE_ID": {
+                            "Ref": "AHLDataStoreId"
+                        },
+                        "CONFIDENCE_LEVEL": {
+                            "Ref": "ConfidenceLevel"
+                        }                     
+                    } 
+                },
+                "ReservedConcurrentExecutions": 1
+            }
+        },
+        "QueryLambdaPolicy": {
+            "Type": "AWS::IAM::Policy",
+            "Properties": {
+                "PolicyName": {"Fn::Sub": "${AWS::StackName}-query-lambda-policy"},
+                "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "lakeformation:GetDataAccess",
+                                "glue:GetTable"
+                            ],
+                            "Resource": "*"
+                        },
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:PutObject",
+                                "s3:GetObject",
+                                "s3:ListBucketMultipartUploads",
+                                "s3:AbortMultipartUpload",
+                                "s3:CreateBucket",
+                                "s3:ListBucket",
+                                "s3:GetBucketLocation",
+                                "s3:ListMultipartUploadParts",
+                                "athena:StartQueryExecution",
+                                "athena:GetQueryExecution",
+                                "athena:GetQueryResults"
+                            ],
+                            "Resource": [
+                                {
+                                    "Fn::Sub": "arn:aws:athena:${AWS::Region}:${AWS::AccountId}:workgroup/primary"
+                                },
+                                {
+                                    "Fn::GetAtt": [
+                                        "AERInputBucket",
+                                        "Arn"
+                                    ]
+                                },
+                                {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            {
+                                                "Fn::GetAtt": [
+                                                    "AERInputBucket",
+                                                    "Arn"
+                                                ]
+                                            },
+                                            "/*"
+                                        ]
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "Roles": [
+                    {
+                      "Ref": "QueryLambdaExecutionRole"  
+                    }
+                ]
+            }
+        },
+        "QueryLambdaExecutionRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "RoleName": {"Fn::Sub": "${AWS::StackName}-query-lambda-execution-role"},
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                      {
+                        "Effect": "Allow",
+                        "Principal": {
+                          "Service": "lambda.amazonaws.com" 
+                        },
+                        "Action": "sts:AssumeRole"
+                      }
+                    ]
+                },
+                "ManagedPolicyArns": [
+                    "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                ]
+            },
+            "Metadata": {
+                "cdk_nag": {
+                  "rules_to_suppress": [
+                    {
+                      "id": "AwsSolutions-IAM4",
+                      "reason": "Use a standard Lambda execution role."
+                    }
+                  ]
+                }
+            }
+        },
+        "QueryAHL": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "Description": "Runs the athena query and waits for the query to finish and returns true if successfull",
+                "FunctionName": {"Fn::Sub": "${AWS::StackName}-query-ahl"},
+                "Handler": "lambda_function.lambda_handler",
+                "Role": {
+                    "Fn::GetAtt": [
+                        "QueryLambdaExecutionRole",
+                        "Arn"
+                    ]
+                },
+                "Code": {
+                    "S3Bucket": "ahl-identity-resolution-bucket",
+                    "S3Key": "query-ahl.zip"
+                },
+                "Runtime": "python3.11",
+                "Timeout": 300,
+                "Environment": {
+                    "Variables": {
+                        "DATABASE_NAME": {
+                            "Ref": "HealthLakeDatabaseName"
+                        },
+                        "S3_LOCATION_NAME": {
+                            "Ref": "InputBucket"
+                        }
+                    }
+                },
+                "ReservedConcurrentExecutions": 1
+            }
+        },
+        "LFDBPermission": {
+            "Type": "AWS::LakeFormation::PrincipalPermissions",
+            "Properties": {
+                "Principal": {
+                    "DataLakePrincipalIdentifier": {
+                        "Fn::GetAtt": [
+                            "QueryLambdaExecutionRole",
+                            "Arn"
+                        ]
+                    }
+                },
+                "Resource": {
+                    "Database": {
+                        "CatalogId": {
+                            "Ref": "AWS::AccountId"
+                        },
+                        "Name": {
+                            "Ref": "HealthLakeDatabaseName"
+                        }
+                    }
+                },
+                "Permissions": [
+                    "DESCRIBE"
+                ],
+                "PermissionsWithGrantOption": [
+                    "DESCRIBE"
+                ]
+            }
+        },
+        "LFTablePermission": {
+            "Type": "AWS::LakeFormation::Permissions",
+            "Properties": {
+                "DataLakePrincipal": {
+                    "DataLakePrincipalIdentifier": {
+                        "Fn::GetAtt": [
+                            "QueryLambdaExecutionRole",
+                            "Arn"
+                        ]
+                    }
+                },
+                "Resource": {
+                    "TableResource": {
+                        "CatalogId": {
+                            "Ref": "HealthLakeDBCatalogID"
+                        },
+                        "DatabaseName": {
+                            "Ref": "HealthLakeDatabaseName"
+                        },
+                        "TableWildcard": {}
+                    }
+                },
+                "Permissions": [
+                    "SELECT",
+                    "DESCRIBE"
+                ]
+            }
+        },
+        "LFColumnPermission": {
+            "Type": "AWS::LakeFormation::Permissions",
+            "Properties": {
+                "DataLakePrincipal": {
+                    "DataLakePrincipalIdentifier": {
+                        "Fn::GetAtt": [
+                            "QueryLambdaExecutionRole",
+                            "Arn"
+                        ]
+                    }
+                },
+                "Resource": {
+                    "TableWithColumnsResource": {
+                        "CatalogId": {
+                            "Ref": "HealthLakeDBCatalogID"
+                        },
+                        "DatabaseName": {
+                            "Ref": "HealthLakeDatabaseName"
+                        },
+                        "Name": "patient",
+                        "ColumnWildcard": {}
+                    }
+                },
+                "Permissions": [
+                    "SELECT"
+                ]
+            }
+        },
+        "CrawlerLambdaExecutionRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "RoleName": {"Fn::Sub": "${AWS::StackName}-crawler-lambda-execution-role"},
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": "lambda.amazonaws.com"
+                            },
+                            "Action": "sts:AssumeRole"
+                        }
+                    ]
+                },
+                "ManagedPolicyArns": [
+                    "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                ],
+                "Policies": [
+                    {
+                        "PolicyName": {"Fn::Sub": "${AWS::StackName}-glue-crawler-policy"},
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "glue:StartCrawler",
+                                        "glue:GetCrawler"
+                                    ],
+                                    "Resource": [
+                                        {"Fn::Sub": "arn:aws:glue:${AWS::Region}:${AWS::AccountId}:crawler/*"}
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+            "Metadata": {
+                "cdk_nag": {
+                  "rules_to_suppress": [
+                    {
+                      "id": "AwsSolutions-IAM4",
+                      "reason": "Use a standard Lambda execution role."
+                    }
+                  ]
+                }
+            }
+        },
+        "CheckCrawler": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "FunctionName": {"Fn::Sub": "${AWS::StackName}-check-crawler"},
+                "Handler": "lambda_function.lambda_handler",
+                "Role": {
+                    "Fn::GetAtt": [
+                        "CrawlerLambdaExecutionRole",
+                        "Arn"
+                    ]
+                },
+                "Code": {
+                    "S3Bucket": "ahl-identity-resolution-bucket",
+                    "S3Key": "check-crawler.zip"
+                },
+                "Runtime": "python3.11",
+                "Timeout": 300,
+                "Environment": {
+                    "Variables": {
+                        "CRAWLER_NAME": {
+                            "Ref": "GlueCrawler"
+                        }               
+                    } 
+                },
+                "ReservedConcurrentExecutions": 1
+            }
+        },
+        "StepFunctionRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "RoleName": {"Fn::Sub": "${AWS::StackName}-step-function-role"},
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": "states.amazonaws.com"
+                            },
+                            "Action": "sts:AssumeRole"
+                        }
+                    ]
+                },
+                "Policies": [
+                    {
+                        "PolicyName": {"Fn::Sub": "${AWS::StackName}-step-function-policy"},
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "lambda:InvokeFunction"
+                                    ],
+                                    "Resource": [
+                                        {"Fn::Sub": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*:*"}
+                                    ]
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "logs:CreateLogDelivery",
+                                        "logs:CreateLogStream",
+                                        "logs:GetLogDelivery",
+                                        "logs:UpdateLogDelivery",
+                                        "logs:DeleteLogDelivery",
+                                        "logs:ListLogDeliveries",
+                                        "logs:PutLogEvents",
+                                        "logs:PutResourcePolicy",
+                                        "logs:DescribeResourcePolicies",
+                                        "logs:DescribeLogGroups"
+                                    ],
+                                    "Resource": "*"
+                                  }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "StepFunctionLogGroup": {
+            "Type": "AWS::Logs::LogGroup",
+            "Properties": {
+                "LogGroupName": {"Fn::Sub": "${AWS::StackName}-state-machine-log-group"},
+                "RetentionInDays": 30
+            }           
+        },
+        "EntityResolutionStateMachine": {
+            "Type": "AWS::StepFunctions::StateMachine",
+            "Properties": {
+                "StateMachineName": {"Fn::Sub": "${AWS::StackName}-ahl-entity-resolution-state-machine"},
+                "DefinitionS3Location": {
+                    "Bucket": "ahl-identity-resolution-bucket",
+                    "Key": "ahl_aer_state_machine.json"
+                },
+                "DefinitionSubstitutions": {
+                    "ReadAHLData": {  
+                        "Fn::Join": [
+                            ":", 
+                            [
+                                {
+                                    "Fn::GetAtt": [
+                                        "QueryAHL",
+                                        "Arn"
+                                    ]
+                                },
+                                "$LATEST"
+                            ]
+                        ]                  
+                    },
+                    "CheckCrawler": {                    
+                        "Fn::Join": [
+                            ":", 
+                            [
+                                {
+                                    "Fn::GetAtt": [
+                                        "CheckCrawler",
+                                        "Arn"
+                                    ]
+                                },
+                                "$LATEST"
+                            ]
+                        ]                  
+                    },
+                    "RunWorkflow": {  
+                        "Fn::Join": [
+                            ":", 
+                            [
+                                {
+                                    "Fn::GetAtt": [
+                                        "RunAERJob",
+                                        "Arn"
+                                    ]
+                                },
+                                "$LATEST"
+                            ]
+                        ]                  
+                    },   
+                    "CheckJob": {  
+                        "Fn::Join": [
+                            ":", 
+                            [
+                                {
+                                    "Fn::GetAtt": [
+                                        "CheckAERJob",
+                                        "Arn"
+                                    ]
+                                },
+                                "$LATEST"
+                            ]
+                        ]               
+                    },
+                    "WriteAHL": {  
+                        "Fn::Join": [
+                            ":", 
+                            [
+                                {
+                                    "Fn::GetAtt": [
+                                        "InsertMatchId",
+                                        "Arn"
+                                    ]
+                                },
+                                "$LATEST"
+                            ]
+                        ]                  
+                    }
+                },
+                "RoleArn": {
+                    "Fn::GetAtt": [
+                        "StepFunctionRole",
+                        "Arn"
+                    ]
+                },
+                "LoggingConfiguration": {
+                    "Level": "ALL",
+                    "IncludeExecutionData": true,
+                    "Destinations": [
+                        {
+                            "CloudWatchLogsLogGroup": {
+                                "LogGroupArn": {
+                                    "Fn::GetAtt": [
+                                        "StepFunctionLogGroup",
+                                        "Arn"
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        "SchemaMapping": {
+            "Type" : "AWS::EntityResolution::SchemaMapping",
+            "Properties" : {
+                "SchemaName" : {
+                    "Ref": "AERSchemaName"
+                },
+                "Description" : "The schema mapping for HealthLake patients",
+                "MappedInputFields" : [
+                    {
+                        "GroupName":"home_address",
+                        "FieldName":"address1",
+                        "MatchKey":"Address",
+                        "Type":"ADDRESS_STREET1"
+                     },
+                     {
+                        "GroupName":"home_address",
+                        "FieldName":"city",
+                        "MatchKey":"Address",
+                        "Type":"ADDRESS_CITY"
+                     },
+                     {
+                       "GroupName":"home_address",
+                       "FieldName":"state_code",
+                       "MatchKey":"Address",
+                       "Type":"ADDRESS_STATE"
+                    },
+                    {
+                       "GroupName":"home_address",
+                       "FieldName":"zip_code",
+                       "MatchKey":"Address",
+                       "Type":"ADDRESS_POSTALCODE"
+                    },
+                    {
+                       "GroupName":"home_address",
+                       "FieldName":"country",
+                       "MatchKey":"Address",
+                       "Type":"ADDRESS_COUNTRY"
+                    },
+                    {
+                       "FieldName":"first_name",
+                       "GroupName":"patient_name",
+                       "MatchKey":"Name",
+                       "Type":"NAME_FIRST"
+                    },
+                    {
+                       "FieldName":"last_name",
+                       "GroupName":"patient_name",
+                       "MatchKey":"Name",
+                       "Type":"NAME_LAST"
+                    },
+                    {
+                       "FieldName":"phone_nbr",
+                       "MatchKey":"Phone",
+                       "Type":"PHONE_NUMBER"
+                    },
+                    {
+                       "FieldName":"gender",
+                       "MatchKey":"Gender",
+                       "Type":"STRING"
+                    },
+                    {
+                       "FieldName":"birth_date",
+                       "MatchKey":"Birthdate",
+                       "Type":"DATE"
+                    },
+                   {
+                       "FieldName":"source_id",
+                       "Type":"UNIQUE_ID"
+                   }
+                ]
+            }
+        },
+        "AERWorkflowRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "RoleName": {"Fn::Sub": "${AWS::StackName}-aer-workflow-role"},
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": "entityresolution.amazonaws.com"
+                            },
+                            "Action": "sts:AssumeRole"
+                        }
+                    ]
+                },
+                "Policies": [
+                    {
+                        "PolicyName": {"Fn::Sub": "${AWS::StackName}-aer-workflow-policy"},
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "lambda:InvokeFunction"
+                                    ],
+                                    "Resource": [
+                                        {"Fn::Sub": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*:*"}
+                                    ]
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "s3:GetObject",
+                                        "s3:ListBucket",
+                                        "s3:GetBucketLocation",
+                                        "s3:PutObject"
+                                    ],
+                                    "Resource": [
+                                        "arn:aws:s3:::*",
+                                        "arn:aws:s3:::*/*"
+                                    ],
+                                    "Condition": {
+                                        "StringEquals": {
+                                            "s3:ResourceAccount": [
+                                                {"Fn::Sub": "${AWS::AccountId}"}
+                                            ]
+                                        }
+                                    }
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "glue:GetDatabase",
+                                        "glue:GetTable",
+                                        "glue:GetPartition",
+                                        "glue:GetPartitions",
+                                        "glue:GetSchema",
+                                        "glue:GetSchemaVersion",
+                                        "glue:BatchGetPartition"
+                                    ],
+                                    "Resource": [
+                                        {"Fn::Sub": "arn:aws:glue:*:${AWS::AccountId}:database/*"},
+                                        {"Fn::Sub": "arn:aws:glue:*:${AWS::AccountId}:table/*"},
+                                        {"Fn::Sub": "arn:aws:glue:*:${AWS::AccountId}:catalog"}
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "MatchingWorkflow": {
+            "Type" : "AWS::EntityResolution::MatchingWorkflow",
+            "Properties" : {
+                "WorkflowName" : {
+                    "Ref": "AERWorkflowName"
+                },
+                "Description" : "The matching workflow for HealthLake patients",
+                "InputSourceConfig": [
+                    {
+                        "ApplyNormalization": true,
+                        "InputSourceARN": {
+                            "Fn::Sub": "arn:aws:glue:${AWS::Region}:${AWS::AccountId}:table/${GlueDatabaseName}/${GlueTableName}"
+                        },
+                        "SchemaArn": {
+                            "Fn::Sub": "arn:aws:entityresolution:${AWS::Region}:${AWS::AccountId}:schemamapping/${AERSchemaName}"
+                        }
+                    }
+                ],
+                "OutputSourceConfig": [
+                    {
+                        "ApplyNormalization": true,
+                        "Output": [
+                            {
+                                "Hashed": false,
+                                "Name": "address1"
+                            },
+                            {
+                                "Hashed": false,
+                                "Name": "city"
+                            },
+                            {
+                                "Hashed": false,
+                                "Name": "state_code"
+                            },
+                            {
+                                "Hashed": false,
+                                "Name": "zip_code"
+                            },
+                            {
+                                "Hashed": false,
+                                "Name": "country"
+                            },
+                            {
+                                "Hashed": false,
+                                "Name": "home_address"
+                            },
+                            {
+                                "Hashed": false,
+                                "Name": "first_name"
+                            },
+                            {
+                                "Hashed": false,
+                                "Name": "last_name"
+                            },
+                            {
+                                "Hashed": false,
+                                "Name": "patient_name"
+                            },
+                            {
+                                "Hashed": false,
+                                "Name": "gender"
+                            },
+                            {
+                                "Hashed": false,
+                                "Name": "birth_date"
+                            },
+                            {
+                                "Hashed": false,
+                                "Name": "phone_nbr"
+                            },
+                            {
+                                "Hashed": false,
+                                "Name": "source_id"
+                            }
+                        ],
+                        "OutputS3Path": {
+                            "Fn::Sub": "s3://${OutputBucket}/"
+                        }
+                    }
+                ],
+                "ResolutionTechniques": {
+                    "ResolutionType": "ML_MATCHING"
+                },
+                "RoleArn": {
+                    "Fn::GetAtt": [
+                        "AERWorkflowRole",
+                        "Arn"
+                    ]
+                }
+            }     
+        },
+        "SchedulerRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "RoleName": {"Fn::Sub": "${AWS::StackName}-scheduler-execution-role"},
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": "scheduler.amazonaws.com"
+                            },
+                            "Action": "sts:AssumeRole"
+                        }
+                    ]
+                },
+                "Policies": [
+                    {
+                        "PolicyName": {"Fn::Sub": "${AWS::StackName}-scheduler-policy"},
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "states:StartExecution"
+                                    ],
+                                    "Resource": [
+                                        {"Fn::Sub": "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:*"}
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "StepFunctionScheduler": {
+            "Type" : "AWS::Scheduler::Schedule",
+            "Properties" : {
+                "Description" : "A scheduler for step function",
+                "FlexibleTimeWindow" : {
+                    "Mode" : "OFF"
+                  },
+                "Name" : {"Fn::Sub": "${AWS::StackName}-step-function-scheduler"},
+                "ScheduleExpression" : "cron(0 22 * * ? *)",
+                "ScheduleExpressionTimezone" : "America/New_York",
+                "State" : "ENABLED",
+                "Target" : {
+                    "Arn" : {
+                        "Fn::GetAtt": [
+                            "EntityResolutionStateMachine",
+                            "Arn"
+                        ]
+                     },
+                    "RoleArn" : {
+                        "Fn::GetAtt": [
+                            "SchedulerRole",
+                            "Arn"
+                        ]
+                    }
+                  }                  
+              }
+        }
+    },
+    "Outputs": {
+        "EntityResolutionStateMachine": {
+            "Value": {
+                "Ref": "EntityResolutionStateMachine"
+            },
+            "Description": "The name of Step Function State Machine"
+        }
+    }
+}
