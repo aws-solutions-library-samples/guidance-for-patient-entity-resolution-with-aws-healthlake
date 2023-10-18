@@ -631,6 +631,16 @@
                       "Ref": "QueryLambdaExecutionRole"  
                     }
                 ]
+            },
+            "Metadata": {
+                "cfn_nag": {
+                  "rules_to_suppress": [
+                    {
+                      "id": "W12",
+                      "reason": "LakeFormation doesn't support specifying resource ARN in the IAM policy statement."
+                    }
+                  ]
+                }
             }
         },
         "QueryLambdaExecutionRole": {
@@ -681,7 +691,7 @@
                     "S3Key": "query-ahl.zip"
                 },
                 "Runtime": "python3.11",
-                "Timeout": 300,
+                "Timeout": 600,
                 "Environment": {
                     "Variables": {
                         "DATABASE_NAME": {
@@ -847,7 +857,7 @@
                     "S3Key": "check-crawler.zip"
                 },
                 "Runtime": "python3.11",
-                "Timeout": 300,
+                "Timeout": 600,
                 "Environment": {
                     "Variables": {
                         "CRAWLER_NAME": {
@@ -909,13 +919,33 @@
                         }
                     }
                 ]
-            }
+            },
+            "Metadata": {
+                "cfn_nag": {
+                  "rules_to_suppress": [
+                    {
+                      "id": "W11",
+                      "reason": "have to use resource * in this statement."
+                    }
+                  ]
+                }
+            }   
         },
         "StepFunctionLogGroup": {
             "Type": "AWS::Logs::LogGroup",
             "Properties": {
                 "LogGroupName": {"Fn::Sub": "${AWS::StackName}-state-machine-log-group"},
                 "RetentionInDays": 30
+            },
+            "Metadata": {
+                "cfn_nag": {
+                  "rules_to_suppress": [
+                    {
+                      "id": "W84",
+                      "reason": "CloudFormation doesn't support Log Group KMS key definition at this point."
+                    }
+                  ]
+                }
             }           
         },
         "EntityResolutionStateMachine": {
