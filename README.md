@@ -31,7 +31,7 @@ Once AWS Entity Resolution has identified matching patient records, the solution
 ### Deployment
 
 To implement this solution, you can deploy this [AWS CloudFormation template](./ahl-aer-template.json). 
-Before deploying this template, you will need following information to use as input parameters to the template:
+Before deploying this template, you will need the following information to use as input parameters to the template:
 
 * The data store ID of a HealthlLake data store that you want to use for patient entity resolution. 
 * The database name and the shared resource owner ID (or catalog ID) of the AWS LakeFormation database that is linked to the AWS HealthLake data store.
