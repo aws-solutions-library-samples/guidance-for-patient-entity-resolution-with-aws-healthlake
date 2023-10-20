@@ -5,11 +5,11 @@
     "Parameters": {
         "InputBucket": {
             "Type": "String",
-            "Description": "S3 bucket name for AWS Entity Resolution (AER) input. For example, aer-input-[AccountId]"
+            "Description": "S3 bucket name for AWS Entity Resolution input. Use a globally unique bucket name, for example, aer-input-[AccountId]"
         },
         "OutputBucket": {
             "Type": "String",
-            "Description": "S3 bucket name for AWS Entity Resolution (AER) output. For example, aer-output-[AccountId]"
+            "Description": "S3 bucket name for AWS Entity Resolution output. Use a globally unique bucket name, for example, aer-output-[AccountId]"
         },
         "AHLDataStoreId": {
             "Type": "String",
