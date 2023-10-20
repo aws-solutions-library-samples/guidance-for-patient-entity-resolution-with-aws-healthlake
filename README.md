@@ -2,11 +2,11 @@
 
 This project leverages [AWS Entity Resolution](https://aws.amazon.com/entity-resolution/) service to perform entity resolution for patient resources stored in [AWS HealthLake (AHL)](https://aws.amazon.com/healthlake/) data store. The implementation of entity resolution within AHL serves as a critical foundational element ensuring data integrity across the data store. An "entity" in this context can denote a singular patient, provider, organization, or healthcare facility. Entity resolution is the pivotal process of determining whether multiple records within AHL pertain to the same real-world object, such as a patient or provider. For example, our healthcare customers have told us that they are challenged by matching patients across data sources that originate from multiple internal systems or even multiple organizations. 
 
-Using the AWS Entity Resolution service, this project addresses this challenge by employing machine learning-based matching algorithm to accurately identify and link disparate patient records, enhancing AHL's ability to establish comprehensive patient profiles with confidence scores, thus ensuring accurate and cohesive healthcare data management. This process is one of the required steps in the broader processes known as Master Data Management (MDM), or Enterprise Master Patient Index (EMPI), etc.
+Using the AWS Entity Resolution service, this project addresses this challenge by employing machine learning-based matching algorithm to accurately identify and link disparate patient records, enhancing AHL's ability to establish comprehensive patient profiles with confidence scores, thus ensuring accurate and cohesive healthcare data management. This process is one of the required steps in the broader processes known as Master Data Management (MDM), or Enterprise Master Patient Index (EMPI).
 
 ### Architecture
 
-The following diagram describes the architecture of this patient entity resolution solution, which leverages AWS native services that aligns with the [AWS Well-Architected Framework](https://aws.amazon.com/architecture/well-architected/), ensuring robust architecture across key dimensions, such as security, reliability, performance efficiency, and cost optimization.
+The following diagram describes the architecture of this patient entity resolution solution, which leverages AWS native services that align with the [AWS Well-Architected Framework](https://aws.amazon.com/architecture/well-architected/), ensuring robust architecture across key dimensions, such as security, reliability, performance efficiency, and cost optimization.
 
 <img src="docs/patient-entity-resolution-architecture.png" alt="Architecture Diagram" />
 
