@@ -423,7 +423,7 @@
                     "S3Key": "check-aer-job.zip"
                 },
                 "Runtime": "python3.11",
-                "Timeout": 30,
+                "Timeout": 60,
                 "Layers": [
                     {
                         "Ref": "Boto3Layer"
