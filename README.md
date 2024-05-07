@@ -71,7 +71,7 @@ The following table provides a sample cost breakdown for deploying this Guidance
 
 ### AWS account requirements
 
-To implement this Guidance, you can deploy this [AWS CloudFormation template](./ahl-aer-template.json). 
+To implement this Guidance, you can deploy this [AWS CloudFormation template](./patient-entity-resolution-template.json). 
 Before deploying this template, you will need the following information to use as input parameters to the template:
 
 * The data store ID of a HealthlLake data store that you want to use for patient entity resolution. 
@@ -85,7 +85,7 @@ This Guidance is available in the US East (N. Virginia), US West (Oregon), US Ea
 
 ## Deployment Steps
 
-To implement this Guidance, you can deploy this [AWS CloudFormation template](./ahl-aer-template.json). 
+To implement this Guidance, you can deploy this [AWS CloudFormation template](./patient-entity-resolution-template.json). 
 Before deploying this template, you will need the following information to use as input parameters to the template:
 
 * The data store ID of a HealthlLake data store that you want to use for patient entity resolution. 
