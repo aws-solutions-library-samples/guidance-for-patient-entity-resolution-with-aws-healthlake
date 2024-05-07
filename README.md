@@ -140,6 +140,4 @@ Contributions are more than welcome. Please read the [code of conduct](CODE_OF_C
 
 ## Authors
 
-[Kai Xu](https://github.com/kaix-aws)
-[Amritha Shetty](https://github.com/awsamri)
-[Jenny Zhou](https://github.com/YYZD-JZ) 
+[Kai Xu](https://github.com/kaix-aws), [Amritha Shetty](https://github.com/awsamri), [Jenny Zhou](https://github.com/YYZD-JZ) 
