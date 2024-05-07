@@ -1,7 +1,7 @@
 {
     "AWSTemplateFormatVersion": "2010-09-09",
-    "Description": "AWS HealthLake AWS Entity Resolution integration.",
-
+    "Description": "Guidance for AWS HealthLake Patient Entity Resolution with AWS Entity Resolution Service (SO9436).",
+    
     "Parameters": {
         "InputBucket": {
             "Type": "String",
