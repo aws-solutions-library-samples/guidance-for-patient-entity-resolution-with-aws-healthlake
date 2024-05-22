@@ -60,9 +60,9 @@ The following table provides a sample cost breakdown for deploying this Guidance
 | ----------- | ------------ | ------------ |
 | AWS Step Fuction | 4,000 state transitions per month  | $ 0.00 |
 | AWS Lambda | One million free requests per month and 400,000 GB-seconds of compute time per month | $ 0.00 |
-| Amazon Athena | $5.00 per TB of data scanned | $ 5.00 |
-| AWS Lake Formation | $1.00 per 100,000 S3 objects, per month | $ 1.00 |
-| AWS Glue | Free for the first million objects stored | $ 0.00 |
+| Amazon Athena | $5.00 per TB of data scanned | $ 7.35 |
+| AWS Lake Formation | $1.00 per 100,000 S3 objects, per month | $ 0.00 |
+| AWS Glue | Free for the first million objects stored | $ 0.07 |
 | AWS Entity Resolution | $0.25 per 1,000 records processed | $ 0.50 |
 | Amazon S3 | $0.023 per GB for the first 50TB, per month | $ 0.23 |
 
