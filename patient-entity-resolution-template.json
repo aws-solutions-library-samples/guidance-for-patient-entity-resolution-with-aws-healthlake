@@ -367,7 +367,7 @@
                     "x86_64"
                 ],
                 "Content": {
-                    "S3Bucket": "ahl-identity-resolution-bucket",
+                    "S3Bucket": "",
                     "S3Key": "boto3-1-28.zip"
                 },
                 "Description": "boto3 version 1.28.3",
@@ -387,7 +387,7 @@
                     ]
                 },
                 "Code": {
-                    "S3Bucket": "ahl-identity-resolution-bucket",
+                    "S3Bucket": "",
                     "S3Key": "run-aer-job.zip"
                 },
                 "Runtime": "python3.11",
@@ -419,7 +419,7 @@
                     ]
                 },
                 "Code": {
-                    "S3Bucket": "ahl-identity-resolution-bucket",
+                    "S3Bucket": "",
                     "S3Key": "check-aer-job.zip"
                 },
                 "Runtime": "python3.11",
@@ -516,7 +516,7 @@
                     "x86_64"
                 ],
                 "Content": {
-                    "S3Bucket": "ahl-identity-resolution-bucket",
+                    "S3Bucket": "",
                     "S3Key": "requests-and-sigv4.zip"
                 },
                 "Description": "requests and AWSSigV4 packages",
@@ -536,7 +536,7 @@
                     ]
                 },
                 "Code": {
-                    "S3Bucket": "ahl-identity-resolution-bucket",
+                    "S3Bucket": "",
                     "S3Key": "insert-match-id.zip"
                 },
                 "Runtime": "python3.11",
@@ -687,7 +687,7 @@
                     ]
                 },
                 "Code": {
-                    "S3Bucket": "ahl-identity-resolution-bucket",
+                    "S3Bucket": "",
                     "S3Key": "query-ahl.zip"
                 },
                 "Runtime": "python3.11",
@@ -853,7 +853,7 @@
                     ]
                 },
                 "Code": {
-                    "S3Bucket": "ahl-identity-resolution-bucket",
+                    "S3Bucket": "",
                     "S3Key": "check-crawler.zip"
                 },
                 "Runtime": "python3.11",
@@ -953,7 +953,7 @@
             "Properties": {
                 "StateMachineName": {"Fn::Sub": "${AWS::StackName}-ahl-entity-resolution-state-machine"},
                 "DefinitionS3Location": {
-                    "Bucket": "ahl-identity-resolution-bucket",
+                    "Bucket": "",
                     "Key": "ahl_aer_state_machine.json"
                 },
                 "DefinitionSubstitutions": {
@@ -1362,4 +1362,5 @@
             "Description": "The name of Step Function State Machine"
         }
     }
+
 }
