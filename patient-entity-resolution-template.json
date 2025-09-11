@@ -40,7 +40,7 @@
             "MinLength": "3",
             "MaxLength": "255",
             "AllowedPattern": "[a-zA-Z0-9_.-]+",
-            "Description": "The account id of the Healthlake service account (catalog id) in LakeFormation)"
+            "Description": "The account id of the Healthlake service account (catalog id) in LakeFormation"
         },
         "HealthLakeDatabaseName": {
             "Type": "String",
@@ -367,8 +367,8 @@
                     "x86_64"
                 ],
                 "Content": {
-                    "S3Bucket": "",
-                    "S3Key": "boto3-1-28.zip"
+                    "S3Bucket": "aws-blogs-artifacts-public",
+                    "S3Key": "artifacts/hcls-ahl-entity-resolution/boto3-1-28.zip"
                 },
                 "Description": "boto3 version 1.28.3",
                 "LayerName": "boto3-1-28-3",
@@ -387,8 +387,8 @@
                     ]
                 },
                 "Code": {
-                    "S3Bucket": "",
-                    "S3Key": "run-aer-job.zip"
+                    "S3Bucket": "aws-blogs-artifacts-public",
+                    "S3Key": "artifacts/hcls-ahl-entity-resolution/run-aer-job.zip"
                 },
                 "Runtime": "python3.11",
                 "Timeout": 60,
@@ -419,8 +419,8 @@
                     ]
                 },
                 "Code": {
-                    "S3Bucket": "",
-                    "S3Key": "check-aer-job.zip"
+                    "S3Bucket": "aws-blogs-artifacts-public",
+                    "S3Key": "artifacts/hcls-ahl-entity-resolution/check-aer-job.zip"
                 },
                 "Runtime": "python3.11",
                 "Timeout": 60,
@@ -516,8 +516,8 @@
                     "x86_64"
                 ],
                 "Content": {
-                    "S3Bucket": "",
-                    "S3Key": "requests-and-sigv4.zip"
+                    "S3Bucket": "aws-blogs-artifacts-public",
+                    "S3Key": "artifacts/hcls-ahl-entity-resolution/requests-and-sigv4.zip"
                 },
                 "Description": "requests and AWSSigV4 packages",
                 "LayerName": "requests-and-sigv4",
@@ -536,8 +536,8 @@
                     ]
                 },
                 "Code": {
-                    "S3Bucket": "",
-                    "S3Key": "insert-match-id.zip"
+                    "S3Bucket": "aws-blogs-artifacts-public",
+                    "S3Key": "artifacts/hcls-ahl-entity-resolution/insert-match-id.zip"
                 },
                 "Runtime": "python3.11",
                 "Timeout": 600,
@@ -687,8 +687,8 @@
                     ]
                 },
                 "Code": {
-                    "S3Bucket": "",
-                    "S3Key": "query-ahl.zip"
+                    "S3Bucket": "aws-blogs-artifacts-public",
+                    "S3Key": "artifacts/hcls-ahl-entity-resolution/query-ahl.zip"
                 },
                 "Runtime": "python3.11",
                 "Timeout": 600,
@@ -853,8 +853,8 @@
                     ]
                 },
                 "Code": {
-                    "S3Bucket": "",
-                    "S3Key": "check-crawler.zip"
+                    "S3Bucket": "aws-blogs-artifacts-public",
+                    "S3Key": "artifacts/hcls-ahl-entity-resolution/check-crawler.zip"
                 },
                 "Runtime": "python3.11",
                 "Timeout": 600,
@@ -953,8 +953,8 @@
             "Properties": {
                 "StateMachineName": {"Fn::Sub": "${AWS::StackName}-ahl-entity-resolution-state-machine"},
                 "DefinitionS3Location": {
-                    "Bucket": "",
-                    "Key": "ahl_aer_state_machine.json"
+                    "Bucket": "aws-blogs-artifacts-public",
+                    "Key": "artifacts/hcls-ahl-entity-resolution/ahl_aer_state_machine.json"
                 },
                 "DefinitionSubstitutions": {
                     "ReadAHLData": {  
@@ -1362,5 +1362,4 @@
             "Description": "The name of Step Function State Machine"
         }
     }
-
 }
